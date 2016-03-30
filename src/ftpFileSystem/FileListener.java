@@ -23,7 +23,7 @@ public class FileListener  {
 
     private  BlockingQueue<String> deleteFile =  new LinkedBlockingDeque<String>();
     private  BlockingQueue<String> faithFile = new LinkedBlockingDeque<String>();
-    private  Map<String,Long> modifyTime = new HashMap<String, Long>();
+    private  ConcurrentHashMap<String,Long> modifyTime ;
 
     public FileListener(String rootpath){
 
@@ -39,14 +39,27 @@ public class FileListener  {
 
         scheduledExecutorService.scheduleWithFixedDelay(new FileRunnable(this.rootpath),initTime,inervalTime, TimeUnit.SECONDS);
 
+        ScheduledExecutorService cache = new ScheduledThreadPoolExecutor(1);
+
+        cache.scheduleWithFixedDelay(new Ceche(),inervalTime+initTime,2*inervalTime,TimeUnit.SECONDS);
+
     }
 
 
     private void initMap(){
-        Map<String,Long> temp= new HashMap<String, Long>();
+        ConcurrentHashMap<String,Long> temp = new ConcurrentHashMap<String, Long>();
+
+        //获取云服务器地址
+        String http ="";
+
+        try {
+            http= PropsUtil.get("host");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         //获取服务器上的文件信息
-        String response = RequestCaseUtil.requestGetCase("http://localhost:8080/ftpfiles");
+        String response = RequestCaseUtil.requestGetCase(http);
 
         //将响应转化为json数组
 
@@ -75,6 +88,39 @@ public class FileListener  {
         }
 
     }
+    class Ceche implements Runnable{
+
+        @Override
+        public void run() {
+            //获取云服务器地址
+            String http ="";
+
+            try {
+                http= PropsUtil.get("host");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            //获取服务器上的文件信息
+            String response = RequestCaseUtil.requestGetCase(http);
+
+            //将响应转化为json数组
+
+            JSONArray jsonArray = JSONObject.parseArray(response);
+
+            for (int i = 0; i <jsonArray.size() ; i++) {
+
+                JSONObject fileMessage = (JSONObject) jsonArray.get(i);
+
+                String name = (String) fileMessage.get("name");
+
+                if (!modifyTime.containsKey(name)){
+                    modifyTime.put(name,null);
+                }
+            }
+        }
+    }
+
 
     class FileRunnable implements Runnable{
 
